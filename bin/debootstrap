@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+source /home/root/.config/debian-chroot.conf
+debootstrap_path="${debootstrap_path:-"/home/root/.local/share/debian"}"
+if ! [ -d "${debootstrap_path}/debootstrap-master" ]; then
+  wget \
+    https://salsa.debian.org/installer-team/debootstrap/-/archive/master/debootstrap-master.tar.gz \
+    --output-document=/tmp/debootstrap.tar.gz
+  trap 'rm /tmp/debootstrap.tar.gz' EXIT
+  mkdir -p "$debootstrap_path"
+  if ! tar -xf /tmp/debootstrap.tar.gz -C "$debootstrap_path"; then
+    rm -rf "$debootstrap_path"
+    echo "Error: Failed to install debootstrap"
+    exit 1
+  fi
+fi
+DEBOOTSTRAP_DIR="${debootstrap_path}/debootstrap-master" \
+"${debootstrap_path}/debootstrap-master/debootstrap" "$@"

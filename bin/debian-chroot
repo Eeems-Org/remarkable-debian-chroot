@@ -1,0 +1,81 @@
+#!/bin/bash
+set -e
+source /home/root/.config/debian-chroot.conf
+src_path="${chroot_path:-"/home/root/.local/share/debian"}"
+
+if ! [ -d "${src_path}/usr/sbin" ] || [ -d "${src_path}/debootstrap" ]; then
+  mkdir -p "$src_path"
+  if ! debootstrap --arch=armhf --variant=minbase --foreign bullseye "$src_path"; then
+    cat "${src_path}/debootstrap/debootstrap.log"
+    exit 1
+  fi
+  if ! chroot "$src_path" /debootstrap/debootstrap --second-stage; then
+    cat "${src_path}/debootstrap/debootstrap.log"
+    exit 1
+  fi
+fi
+mkdir -p "${src_path}/usr/sbin"
+cat > "${src_path}/usr/sbin/policy-rc.d" << EOF
+#!/bin/sh
+exit 101
+EOF
+chmod a+x "${src_path}/usr/sbin/policy-rc.d"
+ln -sf /bin/true "${src_path}/usr/bin/ischroot"
+cp /etc/hosts "${src_path}/etc/hosts"
+cp /etc/resolv.conf "${src_path}/etc/resolv.conf"
+ln -sf /root "${src_path}/home/root"
+if ! [ -d "${src_path}/mnt/remarkable" ]; then
+  mkdir -p "${src_path}/mnt/remarkable"
+fi
+do_mount() {
+  case "${1}" in
+    bind)
+      if ! mountpoint -q "$2"; then
+        mkdir -p "$2"
+        mount --bind "$1" "$2"
+      fi
+      ;;
+    rbind)
+      if ! mountpoint -q "$2"; then
+        mkdir -p "$2"
+        mount --rbind "$1" "$2"
+      fi
+      ;;
+    tmpfs)
+      if ! mountpoint -q "$2"; then
+        mkdir -p "$2"
+        mount -t tmpfs tmpfs "$2"
+      fi
+      ;;
+    *)
+      echo "Unknown mount type $1"
+      return 1
+      ;;
+  esac
+}
+do_mount rbind /dev "${src_path}/dev"
+do_mount rbind /proc "${src_path}/proc"
+do_mount rbind /sys "${src_path}/sys"
+do_mount rbind /run "${src_path}/run"
+do_mount tmpfs "${src_path}/tmp"
+do_mount tmpfs "${src_path}/var/volatile"
+do_mount bind / "${src_path}/mnt/remarkable"
+do_mount bind /var/lib/uboot "${src_path}/mnt/remarkable/var/lib/uboot"
+do_mount bind /home "${src_path}/mnt/remarkable/home"
+if mountpoint -q /opt; then
+  do_mount bind /opt "${src_path}/mnt/remarkable/opt"
+fi
+
+if ! [ -f "${src_path}/.isconfigured" ]; then
+  chroot "$src_path" bash -x <<'EOF'
+    apt install -y ca-certificates
+EOF
+  echo 'PS1="(debian) $PS1"' >> "${src_path}/root/.bashrc"
+  touch "${src_path}/.isconfigured"
+fi
+
+if [ $# -eq 0 ]; then
+  chroot "$src_path" bash -c "cd ~; exec bash -li"
+else
+  chroot "$src_path" "$@"
+fi
