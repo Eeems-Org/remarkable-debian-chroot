@@ -30,15 +30,15 @@ fi
 do_mount() {
   case "${1}" in
     bind)
-      if ! mountpoint -q "$2"; then
-        mkdir -p "$2"
-        mount --bind "$1" "$2"
+      if ! mountpoint -q "$3"; then
+        mkdir -p "$3"
+        mount --bind "$2" "$3"
       fi
       ;;
     rbind)
-      if ! mountpoint -q "$2"; then
-        mkdir -p "$2"
-        mount --rbind "$1" "$2"
+      if ! mountpoint -q "$3"; then
+        mkdir -p "$3"
+        mount --rbind "$2" "$3"
       fi
       ;;
     tmpfs)
