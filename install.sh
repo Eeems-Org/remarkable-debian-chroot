@@ -67,7 +67,7 @@ EOF
       grep "${chroot_path}" /proc/mounts \
       | sort -r \
       | cut -d' ' -f2 \
-      | xargs -rn1 $SUDO umount -lqR
+      | xargs -rn1 $SUDO /bin/umount -lqR
     done
     $SUDO rm -rf "$chroot_path"
     $SUDO rm -f "$config_file"
