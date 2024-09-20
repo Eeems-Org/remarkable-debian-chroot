@@ -1,15 +1,26 @@
 #!/bin/bash
 set -e
-source /home/root/.config/debian-chroot.conf
-src_path="${chroot_path:-"/home/root/.local/share/debian"}"
+config_file="/home/$USER/.config/debian-chroot.conf"
+if [ -f "$config_file" ]; then
+  source "$config_file"
+fi
+src_path="${chroot_path:-"/home/$USER/.local/share/debian"}"
+debian_arch=${debian_arch:-armhf}
+debian_variant=${debian_variant:-minbase}
+debian_version=${debian_version:-bullseye}
+
+SUDO=
+if [[ "$USER" != "root" ]] && command -v sudo > /dev/null; then
+  SUDO=sudo
+fi
 
 if ! [ -d "${src_path}/usr/sbin" ] || [ -d "${src_path}/debootstrap" ]; then
   mkdir -p "$src_path"
-  if ! debootstrap --arch=armhf --variant=minbase --foreign bullseye "$src_path"; then
+  if ! debootstrap --arch=$debian_arch --variant=$debian_variant --foreign $debian_version "$src_path"; then
     cat "${src_path}/debootstrap/debootstrap.log"
     exit 1
   fi
-  if ! chroot "$src_path" /debootstrap/debootstrap --second-stage; then
+  if ! $SUDO chroot "$src_path" /debootstrap/debootstrap --second-stage; then
     cat "${src_path}/debootstrap/debootstrap.log"
     exit 1
   fi
@@ -23,7 +34,7 @@ chmod a+x "${src_path}/usr/sbin/policy-rc.d"
 ln -sf /bin/true "${src_path}/usr/bin/ischroot"
 cp /etc/hosts "${src_path}/etc/hosts"
 cp /etc/resolv.conf "${src_path}/etc/resolv.conf"
-ln -sf /root "${src_path}/home/root"
+ln -sf /root "${src_path}/home/$USER"
 if ! [ -d "${src_path}/mnt/remarkable" ]; then
   mkdir -p "${src_path}/mnt/remarkable"
 fi
@@ -32,19 +43,19 @@ do_mount() {
     bind)
       if ! mountpoint -q "$3"; then
         mkdir -p "$3"
-        mount --bind "$2" "$3"
+        $SUDO mount --bind "$2" "$3"
       fi
       ;;
     rbind)
       if ! mountpoint -q "$3"; then
         mkdir -p "$3"
-        mount --rbind "$2" "$3"
+        $SUDO mount --rbind "$2" "$3"
       fi
       ;;
     tmpfs)
       if ! mountpoint -q "$2"; then
         mkdir -p "$2"
-        mount -t tmpfs tmpfs "$2"
+        $SUDO mount -t tmpfs tmpfs "$2"
       fi
       ;;
     *)
@@ -67,15 +78,15 @@ if mountpoint -q /opt; then
 fi
 
 if ! [ -f "${src_path}/.isconfigured" ]; then
-  chroot "$src_path" bash -x <<'EOF'
+  $SUDO chroot "$src_path" bash -x <<'EOF'
     apt install -y ca-certificates
 EOF
-  echo 'PS1="(debian) $PS1"' >> "${src_path}/root/.bashrc"
+  echo 'PS1="(debian) $PS1"' >> "${src_path}/$USER/.bashrc"
   touch "${src_path}/.isconfigured"
 fi
 
 if [ $# -eq 0 ]; then
-  chroot "$src_path" bash -c "cd ~; exec bash -li"
+  $SUDO chroot "$src_path" bash -c "cd ~; exec bash -li"
 else
-  chroot "$src_path" "$@"
+  $SUDO chroot "$src_path" "$@"
 fi
