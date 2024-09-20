@@ -18,43 +18,43 @@ if ! [ -d "${src_path}/usr/sbin" ] || [ -d "${src_path}/debootstrap" ]; then
   mkdir -p "$src_path"
   if ! debootstrap --arch=$debian_arch --variant=$debian_variant --foreign $debian_version "$src_path"; then
     cat "${src_path}/debootstrap/debootstrap.log"
+    echo "Failed to install chroot stage 1"
     exit 1
   fi
-  if ! $SUDO chroot "$src_path" /debootstrap/debootstrap --second-stage; then
+  if ! PATH=/bin:/sbin:/usr/bin $SUDO chroot "$src_path" /debootstrap/debootstrap --second-stage; then
     cat "${src_path}/debootstrap/debootstrap.log"
+    echo "Failed to install chroot stage 2"
     exit 1
   fi
 fi
-mkdir -p "${src_path}/usr/sbin"
-cat > "${src_path}/usr/sbin/policy-rc.d" << EOF
-#!/bin/sh
-exit 101
-EOF
-chmod a+x "${src_path}/usr/sbin/policy-rc.d"
-ln -sf /bin/true "${src_path}/usr/bin/ischroot"
-cp /etc/hosts "${src_path}/etc/hosts"
-cp /etc/resolv.conf "${src_path}/etc/resolv.conf"
-ln -sf /root "${src_path}/home/$USER"
+$SUDO mkdir -p "${src_path}/usr/sbin"
+echo "#!/bin/sh" | $SUDO tee "${src_path}/usr/sbin/policy-rc.d"
+echo "exit 101" | $SUDO tee -a "${src_path}/usr/sbin/policy-rc.d"
+$SUDO chmod a+x "${src_path}/usr/sbin/policy-rc.d"
+$SUDO ln -sf /bin/true "${src_path}/usr/bin/ischroot"
+$SUDO cp /etc/hosts "${src_path}/etc/hosts"
+$SUDO cp /etc/resolv.conf "${src_path}/etc/resolv.conf"
+$SUDO ln -sf /root "${src_path}/home/root"
 if ! [ -d "${src_path}/mnt/remarkable" ]; then
-  mkdir -p "${src_path}/mnt/remarkable"
+  $SUDO mkdir -p "${src_path}/mnt/remarkable"
 fi
 do_mount() {
   case "${1}" in
     bind)
       if ! mountpoint -q "$3"; then
-        mkdir -p "$3"
+        $SUDO mkdir -p "$3"
         $SUDO mount --bind "$2" "$3"
       fi
       ;;
     rbind)
       if ! mountpoint -q "$3"; then
-        mkdir -p "$3"
+        $SUDO mkdir -p "$3"
         $SUDO mount --rbind "$2" "$3"
       fi
       ;;
     tmpfs)
       if ! mountpoint -q "$2"; then
-        mkdir -p "$2"
+        $SUDO mkdir -p "$2"
         $SUDO mount -t tmpfs tmpfs "$2"
       fi
       ;;
@@ -81,7 +81,7 @@ if ! [ -f "${src_path}/.isconfigured" ]; then
   $SUDO chroot "$src_path" bash -x <<'EOF'
     apt install -y ca-certificates
 EOF
-  echo 'PS1="(debian) $PS1"' >> "${src_path}/$USER/.bashrc"
+  echo 'PS1="(debian) $PS1"' | $SUDO tee -a "${src_path}/root/.bashrc"
   touch "${src_path}/.isconfigured"
 fi
 
