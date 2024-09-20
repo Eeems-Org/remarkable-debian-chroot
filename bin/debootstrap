@@ -1,7 +1,10 @@
 #!/bin/sh
 set -e
-source /home/root/.config/debian-chroot.conf
-debootstrap_path="${debootstrap_path:-"/home/root/.local/share/debian"}"
+config_file="/home/$USER/.config/debian-chroot.conf"
+if [ -f "$config_file" ]; then
+  source "$config_file"
+fi
+debootstrap_path="${debootstrap_path:-"/home/$USER/.local/share/debian"}"
 if ! [ -d "${debootstrap_path}/debootstrap-master" ]; then
   wget \
     https://salsa.debian.org/installer-team/debootstrap/-/archive/master/debootstrap-master.tar.gz \
@@ -14,5 +17,9 @@ if ! [ -d "${debootstrap_path}/debootstrap-master" ]; then
     exit 1
   fi
 fi
+SUDO=
+if [[ "$USER" != "root" ]] && command -v sudo > /dev/null; then
+  SUDO=sudo
+fi
 DEBOOTSTRAP_DIR="${debootstrap_path}/debootstrap-master" \
-"${debootstrap_path}/debootstrap-master/debootstrap" "$@"
+$SUDO "${debootstrap_path}/debootstrap-master/debootstrap" "$@"
