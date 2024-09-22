@@ -21,7 +21,7 @@ if ! [ -d "${src_path}/usr/sbin" ] || [ -d "${src_path}/debootstrap" ]; then
     echo "Failed to install chroot stage 1"
     exit 1
   fi
-  if ! PATH=/bin:/sbin:/usr/bin $SUDO chroot "$src_path" /debootstrap/debootstrap --second-stage; then
+  if ! PATH=/bin:/sbin:/usr/bin:/usr/sbin $SUDO chroot "$src_path" /debootstrap/debootstrap --second-stage; then
     cat "${src_path}/debootstrap/debootstrap.log"
     echo "Failed to install chroot stage 2"
     exit 1
