@@ -28,8 +28,8 @@ if ! [ -d "${src_path}/usr/sbin" ] || [ -d "${src_path}/debootstrap" ]; then
   fi
 fi
 $SUDO mkdir -p "${src_path}/usr/sbin"
-echo "#!/bin/sh" | $SUDO tee "${src_path}/usr/sbin/policy-rc.d"
-echo "exit 101" | $SUDO tee -a "${src_path}/usr/sbin/policy-rc.d"
+echo "#!/bin/sh" | $SUDO tee "${src_path}/usr/sbin/policy-rc.d" > /dev/null
+echo "exit 101" | $SUDO tee -a "${src_path}/usr/sbin/policy-rc.d" > /dev/null
 $SUDO chmod a+x "${src_path}/usr/sbin/policy-rc.d"
 $SUDO ln -sf /bin/true "${src_path}/usr/bin/ischroot"
 $SUDO cp /etc/hosts "${src_path}/etc/hosts"
