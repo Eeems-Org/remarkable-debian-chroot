@@ -36,8 +36,8 @@ fi
 case "${1:-install}" in
   install)
     if ! type perl &> /dev/null || ! type ar &> /dev/null; then
-      echo "Perl and ar are required to run"
       if ! type opkg &> /dev/null; then
+        echo "Perl and ar are required to run"
         exit 1
       fi
       echo "Installing perl and ar"
