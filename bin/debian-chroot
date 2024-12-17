@@ -49,7 +49,7 @@ do_mount() {
     rbind)
       if ! mountpoint -q "$3"; then
         $SUDO mkdir -p "$3"
-        $SUDO mount --rbind "$2" "$3"
+        $SUDO /bin/mount --rbind "$2" "$3" --make-rslave
       fi
       ;;
     tmpfs)
