@@ -64,6 +64,7 @@ do_mount() {
       ;;
   esac
 }
+do_mount bind "${src_path}" "${src_path}"
 do_mount rbind /dev "${src_path}/dev"
 do_mount rbind /proc "${src_path}/proc"
 do_mount rbind /sys "${src_path}/sys"
