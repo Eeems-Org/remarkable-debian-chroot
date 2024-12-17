@@ -46,11 +46,12 @@ do_mount() {
         $SUDO mount --bind "$2" "$3"
       fi
       ;;
-    rbind)
-      if ! mountpoint -q "$3"; then
-        $SUDO mkdir -p "$3"
-        $SUDO /bin/mount --rbind "$2" "$3" --make-rslave
-      fi
+    bind_all)
+      do_mount bind "$2" "$3$2"
+      cat /proc/mounts \
+      | cut -d' ' -f2 \
+      | grep "^$2" \
+      | xargs -I {} bash -c 'do_mount bind {} "$3{}"'
       ;;
     tmpfs)
       if ! mountpoint -q "$2"; then
@@ -64,11 +65,12 @@ do_mount() {
       ;;
   esac
 }
+export -f do_mount
 do_mount bind "${src_path}" "${src_path}"
-do_mount rbind /dev "${src_path}/dev"
-do_mount rbind /proc "${src_path}/proc"
-do_mount rbind /sys "${src_path}/sys"
-do_mount rbind /run "${src_path}/run"
+do_mount bind_all /dev/ "${src_path}"
+do_mount bind_all /proc/ "${src_path}"
+do_mount bind_all /sys/ "${src_path}"
+do_mount bind_all /run/ "${src_path}"
 do_mount tmpfs "${src_path}/tmp"
 do_mount tmpfs "${src_path}/var/volatile"
 do_mount bind / "${src_path}/mnt/remarkable"
