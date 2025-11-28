@@ -13,7 +13,7 @@ debian_variant=${debian_variant:-minbase}
 debian_version=${debian_version:-bullseye}
 if ! [ -f /sys/devices/soc0/machine ];then
   debian_arch=${debian_arch:-amd64}
-elif [[ "$(cat /sys/devices/soc0/machine)" == "reMarkable Ferrari" ]]; then
+elif [[ "$(cat /sys/devices/soc0/machine)" == "reMarkable Ferrari" ]] || [[ "$(cat /sys/devices/soc0/machine)" == "reMarkable Chiappa" ]]; then
   debian_arch=${debian_arch:-arm64}
 else
   debian_arch=${debian_arch:-armhf}
