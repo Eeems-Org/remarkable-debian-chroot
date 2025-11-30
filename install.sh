@@ -11,12 +11,15 @@ chroot_path="${chroot_path:-"/home/$USER/.local/share/debian"}"
 debootstrap_path="${debootstrap_path:-"/home/$USER/.local/share/debootstrap"}"
 debian_variant=${debian_variant:-minbase}
 debian_version=${debian_version:-bullseye}
-if ! [ -f /sys/devices/soc0/machine ];then
+if ! [ -f /sys/devices/soc0/machine ]; then
   debian_arch=${debian_arch:-amd64}
-elif [[ "$(cat /sys/devices/soc0/machine)" == "reMarkable Ferrari" ]] || [[ "$(cat /sys/devices/soc0/machine)" == "reMarkable Chiappa" ]]; then
+elif [[ "$(uname -m)" == "aarch64" ]]; then
   debian_arch=${debian_arch:-arm64}
-else
+elif [[ "$(uname -m)" == "armv7l" ]]; then
   debian_arch=${debian_arch:-armhf}
+else
+  echo "Unknown architecture $(uname -m)"
+  exit 1
 fi
 download() {
   if [ -f "$3" ]; then
