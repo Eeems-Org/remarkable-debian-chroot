@@ -11,13 +11,22 @@ chroot_path="${chroot_path:-"/home/$USER/.local/share/debian"}"
 debootstrap_path="${debootstrap_path:-"/home/$USER/.local/share/debootstrap"}"
 debian_variant=${debian_variant:-minbase}
 debian_version=${debian_version:-bullseye}
-if ! [ -f /sys/devices/soc0/machine ];then
-  debian_arch=${debian_arch:-amd64}
-elif [[ "$(cat /sys/devices/soc0/machine)" == "reMarkable Ferrari" ]]; then
-  debian_arch=${debian_arch:-arm64}
-else
-  debian_arch=${debian_arch:-armhf}
-fi
+machine_arch="$(uname -m)"
+case "$machine_arch" in
+  x86_64)
+    debian_arch=${debian_arch:-amd64}
+    ;;
+  aarch64)
+    debian_arch=${debian_arch:-arm64}
+    ;;
+  armv7l)
+    debian_arch=${debian_arch:-armhf}
+    ;;
+  *)
+    echo "Unknown architecture $machine_arch"
+    exit 1
+    ;;
+esac
 download() {
   if [ -f "$3" ]; then
     echo "Warning: ${3} already exists"
