@@ -9,67 +9,90 @@ debian_arch=${debian_arch:-armhf}
 debian_variant=${debian_variant:-minbase}
 debian_version=${debian_version:-bullseye}
 
+debug() {
+  if [[ ! -z "$DEBUG" ]]; then
+    echo "$@" >/dev/stderr
+  fi
+}
+
 SUDO=
-if [[ "$USER" != "root" ]] && command -v sudo > /dev/null; then
+if [[ "$USER" != "root" ]] && command -v sudo >/dev/null; then
+  debug "Using sudo"
   SUDO=sudo
 fi
 
 if ! [ -d "${src_path}/usr/sbin" ] || [ -d "${src_path}/debootstrap" ]; then
+  debug "Installing with debootstrap..."
   mkdir -p "$src_path"
   if ! debootstrap --arch=$debian_arch --variant=$debian_variant --foreign $debian_version "$src_path"; then
     cat "${src_path}/debootstrap/debootstrap.log"
-    echo "Failed to install chroot stage 1"
+    echo "Failed to install chroot stage 1" >/dev/stderr
     exit 1
   fi
   if ! PATH=/bin:/sbin:/usr/bin:/usr/sbin $SUDO chroot "$src_path" /debootstrap/debootstrap --second-stage; then
     cat "${src_path}/debootstrap/debootstrap.log"
-    echo "Failed to install chroot stage 2"
+    echo "Failed to install chroot stage 2" >/dev/stderr
     exit 1
   fi
 fi
 $SUDO mkdir -p "${src_path}/usr/sbin"
-echo "#!/bin/sh" | $SUDO tee "${src_path}/usr/sbin/policy-rc.d" > /dev/null
-echo "exit 101" | $SUDO tee -a "${src_path}/usr/sbin/policy-rc.d" > /dev/null
+echo "#!/bin/sh" | $SUDO tee "${src_path}/usr/sbin/policy-rc.d" >/dev/null
+echo "exit 101" | $SUDO tee -a "${src_path}/usr/sbin/policy-rc.d" >/dev/null
 $SUDO chmod a+x "${src_path}/usr/sbin/policy-rc.d"
 $SUDO ln -sf /bin/true "${src_path}/usr/bin/ischroot"
 $SUDO cp /etc/hosts "${src_path}/etc/hosts"
 $SUDO cp /etc/resolv.conf "${src_path}/etc/resolv.conf"
+$SUDO ln -sf /proc/mounts "${src_path}/etc/mtab"
 $SUDO ln -sf /root "${src_path}/home/root"
 if ! [ -d "${src_path}/mnt/remarkable" ]; then
   $SUDO mkdir -p "${src_path}/mnt/remarkable"
 fi
+is_mountpoint() {
+  debug "is_mountpoint ${1%/}"
+  cat /proc/mounts | cut -d' ' -f2 | grep -q "^${1%/}$"
+}
 do_mount() {
   case "${1}" in
-    bind)
-      if ! mountpoint -q "$3"; then
-        $SUDO mkdir -p "$3"
-        $SUDO mount --bind "$2" "$3"
-      fi
-      ;;
-    bind_all)
-      do_mount bind "$2" "$3$2"
-      cat /proc/mounts \
-      | cut -d' ' -f2 \
-      | grep "^$2" \
-      | xargs -I {} bash -c 'do_mount bind {} "$3{}"'
-      ;;
-    tmpfs)
-      if ! mountpoint -q "$2"; then
-        $SUDO mkdir -p "$2"
-        $SUDO mount -t tmpfs tmpfs "$2"
-      fi
-      ;;
-    *)
-      echo "Unknown mount type $1"
-      return 1
-      ;;
+  bind)
+    if ! is_mountpoint "$3"; then
+      debug "bind $2->$3"
+      $SUDO mkdir -p "$3"
+      $SUDO mount --bind "$2" "$3"
+    fi
+    ;;
+  rbind)
+    if ! is_mountpoint "$3"; then
+      debug "rbind $2->$3"
+      $SUDO mkdir -p "$3"
+      $SUDO mount --rbind "$2" "$3"
+    fi
+    ;;
+  bind_all)
+    do_mount bind "$2" "$3$2"
+    cat /proc/mounts |
+      cut -d' ' -f2 |
+      grep "^$2" |
+      xargs -I {} bash -c 'do_mount bind {} "$3{}"'
+    ;;
+  tmpfs)
+    if ! is_mountpoint "$2"; then
+      debug "tmpfs $2"
+      $SUDO mkdir -p "$2"
+      $SUDO mount -t tmpfs tmpfs "$2"
+    fi
+    ;;
+  *)
+    echo "Unknown mount type $1" >/dev/stderr
+    return 1
+    ;;
   esac
 }
 export -f do_mount
+export -f is_mountpoint
 do_mount bind "${src_path}" "${src_path}"
-do_mount bind_all /dev/ "${src_path}"
-do_mount bind_all /proc/ "${src_path}"
-do_mount bind_all /sys/ "${src_path}"
+do_mount rbind /dev/ "${src_path}/dev"
+do_mount rbind /proc/ "${src_path}/proc"
+do_mount rbind /sys/ "${src_path}/sys"
 do_mount bind_all /run/ "${src_path}"
 do_mount tmpfs "${src_path}/tmp"
 do_mount tmpfs "${src_path}/var/volatile"
@@ -81,6 +104,7 @@ if mountpoint -q /opt; then
 fi
 
 if ! [ -f "${src_path}/.isconfigured" ]; then
+  debug "Configuring chroot..."
   $SUDO chroot "$src_path" bash -x <<'EOF'
     apt install -y ca-certificates
 EOF
@@ -89,7 +113,9 @@ EOF
 fi
 
 if [ $# -eq 0 ]; then
+  debug "Entering chroot"
   $SUDO chroot "$src_path" bash -c "cd ~; exec bash -li"
 else
+  debug "Running command..."
   $SUDO chroot "$src_path" "$@"
 fi
